@@ -556,7 +556,10 @@ class Nmcli(object):
         self.type=module.params['type']
         self.ip4=module.params['ip4']
         self.gw4=module.params['gw4']
-        self.dns4=' '.join(module.params['dns4'])
+        if module.params['dns4'] is not None:
+            self.dns4=' '.join(module.params['dns4'])
+        else:
+            self.dns4=None
         self.ip6=module.params['ip6']
         self.gw6=module.params['gw6']
         self.dns6=module.params['dns6']
@@ -582,7 +585,10 @@ class Nmcli(object):
         self.egress=module.params['egress']
 
     def execute_command(self, cmd, use_unsafe_shell=False, data=None):
-        return self.module.run_command(cmd, use_unsafe_shell=use_unsafe_shell, data=data)
+        return_vals= self.module.run_command(cmd, use_unsafe_shell=use_unsafe_shell, data=data)
+        rval_list = list(return_vals)
+        rval_list.append( ' '.join(cmd))
+        return tuple(rval_list)
 
     def merge_secrets(self, proxy, config, setting_name):
         try:
@@ -675,6 +681,7 @@ class Nmcli(object):
         for con_item in connections:
             if self.conn_name==con_item:
                 return True
+        return False
 
     def down_connection(self):
         cmd=[self.module.get_bin_path('nmcli', True)]
@@ -976,16 +983,62 @@ class Nmcli(object):
         if self.autoconnect is not None:
             cmd.append('autoconnect')
             cmd.append(self.bool_to_string(self.autoconnect))
+        if self.master is not None:
+            cmd.append('master')
+            cmd.append(self.master)
         return cmd
 
     def create_connection_bridge(self):
         cmd=[self.module.get_bin_path('nmcli', True)]
         # format for creating bridge interface
+        # To add an Ethernet connection with static IP configuration, issue a command as follows
+        # - nmcli: name=add conn_name=my-eth1 ifname=eth1 type=ethernet ip4=192.0.2.100/24 gw4=192.0.2.1 state=present
+        # nmcli con add con-name my-eth1 ifname eth1 type ethernet ip4 192.0.2.100/24 gw4 192.0.2.1
+        cmd.append('con')
+        cmd.append('add')
+        cmd.append('type')
+        cmd.append('bridge')
+        cmd.append('con-name')
+        if self.conn_name is not None:
+            cmd.append(self.conn_name)
+        cmd.append('ifname')
+        if self.conn_name is not None:
+            cmd.append(self.conn_name)
+        if self.ip4 is not None:
+            cmd.append('ipv4.address')
+            cmd.append(self.ip4)
+            cmd.append('ipv4.method')
+            cmd.append('static')
+        if self.gw4 is not None:
+            cmd.append('ipv4.gateway')
+            cmd.append(self.gw4)
         return cmd
 
     def modify_connection_bridge(self):
         cmd=[self.module.get_bin_path('nmcli', True)]
-        # format for modifying bridge interface
+        # format for  modifying ethernet interface
+        # To add an Ethernet connection with static IP configuration, issue a command as follows
+        # - nmcli: name=add conn_name=my-eth1 ifname=eth1 type=ethernet ip4=192.0.2.100/24 gw4=192.0.2.1 state=present
+        # nmcli con add con-name my-eth1 ifname eth1 type ethernet ip4 192.0.2.100/24 gw4 192.0.2.1
+        cmd.append('con')
+        cmd.append('mod')
+        cmd.append(self.conn_name)
+        if self.ip4 is not None:
+            cmd.append('ipv4.address')
+            cmd.append(self.ip4)
+            cmd.append('ipv4.method')
+            cmd.append('static')
+        else:
+            cmd.append('ipv4.address')
+            cmd.append('')
+            cmd.append('ipv4.method')
+            cmd.append('auto')
+        if self.gw4 is not None:
+            cmd.append('ipv4.gateway')
+            cmd.append(self.gw4)
+        else:
+            cmd.append('ipv4.gateway')
+            cmd.append('')
         return cmd
 
     def create_connection_vlan(self):
@@ -1165,15 +1218,17 @@ def main():
             result['Exists']='Connections do exist so we are modifying them'
             if module.check_mode:
                 module.exit_json(changed=True)
-            (rc, out, err)=nmcli.modify_connection()
+            (rc, out, err,cmd)=nmcli.modify_connection()
         if not nmcli.connection_exists():
             result['Connection']=('Connection %s of Type %s is being added' % (nmcli.conn_name, nmcli.type))
             if module.check_mode:
                 module.exit_json(changed=True)
-            (rc, out, err)=nmcli.create_connection()
+            (rc, out, err,cmd)=nmcli.create_connection()
         if rc is not None and rc!=0:
-            module.fail_json(name=nmcli.conn_name, msg=err, rc=rc)
+            module.fail_json(name=nmcli.conn_name, msg=err, rc=rc,cmd=cmd)
 
+    if cmd:
+        result['cmd']=cmd
     if rc is None:
         result['changed']=False
     else:
