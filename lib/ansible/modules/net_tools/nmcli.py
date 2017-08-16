@@ -994,6 +994,8 @@ class Nmcli(object):
         cmd.append('mod')
         cmd.append(self.conn_name)
         if self.ip4 is not None:
+            cmd.append('ipv4.method')
+            cmd.append('manual')
             cmd.append('ipv4.address')
             cmd.append(self.ip4)
         if self.gw4 is not None:
@@ -1046,6 +1048,12 @@ class Nmcli(object):
         if self.gw4 is not None:
             cmd.append('ipv4.gateway')
             cmd.append(self.gw4)
+        if self.stp is True or self.stp is None:
+            cmd.append('bridge.stp')
+            cmd.append('yes')
+        else:
+            cmd.append('bridge.stp')
+            cmd.append('no')
         return cmd
 
     def modify_connection_bridge(self):
@@ -1063,16 +1071,17 @@ class Nmcli(object):
             cmd.append('ipv4.method')
             cmd.append('static')
         else:
-            cmd.append('ipv4.address')
-            cmd.append('')
             cmd.append('ipv4.method')
             cmd.append('auto')
         if self.gw4 is not None:
             cmd.append('ipv4.gateway')
             cmd.append(self.gw4)
+        if self.stp is True or self.stp is None:
+            cmd.append('bridge.stp')
+            cmd.append('yes')
         else:
-            cmd.append('ipv4.gateway')
-            cmd.append('')
+            cmd.append('bridge.stp')
+            cmd.append('no')
         return cmd
 
     def create_connection_vlan(self):
