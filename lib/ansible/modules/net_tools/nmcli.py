@@ -132,6 +132,11 @@ options:
         default: None
         description:
             - This is only used with bridge and controls whether Spanning Tree Protocol (STP) is enabled for this bridge
+    never_default:
+        required: False
+        default: False
+        description:
+            - prevents this interface from being used as a default route
     priority:
         required: False
         default: 128
@@ -565,6 +570,7 @@ class Nmcli(object):
         self.dns6=module.params['dns6']
         self.mtu=module.params['mtu']
         self.stp=module.params['stp']
+        self.never_default=module.params['never_default']
         self.priority=module.params['priority']
         self.mode=module.params['mode']
         self.miimon=module.params['miimon']
@@ -982,6 +988,13 @@ class Nmcli(object):
         if self.autoconnect is not None:
             cmd.append('autoconnect')
             cmd.append(self.bool_to_string(self.autoconnect))
+        if self.never_default is False or self.never_default is None:
+            cmd.append('ipv4.never-default')
+            cmd.append('yes')
+        else:
+            cmd.append('ipv4.never-default')
+            cmd.append('no')
+ 
         return cmd
 
     def modify_connection_ethernet(self):
@@ -1022,6 +1035,12 @@ class Nmcli(object):
         if self.master is not None:
             cmd.append('master')
             cmd.append(self.master)
+        if self.never_default is False or self.never_default is None:
+            cmd.append('ipv4.never-default')
+            cmd.append('yes')
+        else:
+            cmd.append('ipv4.never-default')
+            cmd.append('no')
         return cmd
 
     def create_connection_bridge(self):
@@ -1053,6 +1072,12 @@ class Nmcli(object):
             cmd.append('yes')
         else:
             cmd.append('bridge.stp')
+            cmd.append('no')
+        if self.never_default is False or self.never_default is None:
+            cmd.append('ipv4.never-default')
+            cmd.append('yes')
+        else:
+            cmd.append('ipv4.never-default')
             cmd.append('no')
         return cmd
 
@@ -1209,6 +1234,7 @@ def main():
             mac=dict(required=False, default=None, type='str'),
             # bridge specific vars
             stp=dict(required=False, default=True, type='bool'),
+            never_default=dict(required=False, default=True, type='bool'),
             priority=dict(required=False, default="128", type='str'),
             slavepriority=dict(required=False, default="32", type='str'),
             forwarddelay=dict(required=False, default="15", type='str'),
